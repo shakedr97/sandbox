@@ -2,12 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import random
+from enum import Enum
+
+class DebugLevel(Enum):
+    NONE = 0
+    INFO = 1
+    DEBUG = 2
+    TRACE = 3
 
 def step(width, point, high=1, low=0):
     return high if (-0.1 < point < width + 0.1) else low
-
-def mask_step(width, point):
-    step(width, point) - 0.5
 
 def create_single_time_data(timestamp, step_width=10, step_length=20):
     data = np.linspace(1, 1000, 1000)
@@ -38,9 +42,6 @@ def generate_frequency_response(width=250, size=1000):
     response = response * 5 / np.max(response)
     response = response - np.min(response)
     return response
-
-def create_mask(time_offset, width):
-    return 
 
 def log_sum(a, b):
     return 10 * np.log10(np.pow(10, 0.1 * a) + np.pow(10, 0.1 * b))
@@ -112,15 +113,16 @@ def create_mask(sum_zero_mask=False, point=100, step_size=10, step_length=20):
 
     return 2 * mask - mix_mask
     
-def get_sweep_start_time(data, sum_zero_mask=False):
+def get_sweep_start_time(data, sum_zero_mask=False, debug_level=DebugLevel.NONE):
     start = time.time()
     corr = []
     coarse_step = 15
     for i in range(-500, 0, coarse_step):
         mask = create_mask(sum_zero_mask=sum_zero_mask, point=i, step_size=coarse_step)
-        plt.imshow(mask, cmap='hot', interpolation='nearest')
-        plt.colorbar()
-        plt.show()
+        if debug_level == DebugLevel.TRACE:
+            plt.imshow(mask, cmap='hot', interpolation='nearest')
+            plt.colorbar()
+            plt.show()
         conv = np.multiply(data, mask)
         single_corr = np.sum(conv)
         corr.append(single_corr)
@@ -152,33 +154,39 @@ def get_sweep_start_time(data, sum_zero_mask=False):
     final_value = start_value + step * max_index
     return final_value
 
+def get_percentile_data(data_freqs, data_amps, percentile=80):
+    indexed_data = {}
+    for point in range(len(data_freqs)):
+        freq = data_freqs[point]
+        amp = data_amps[point]
+        if freq not in indexed_data.keys():
+            indexed_data[freq] = []
+        else:
+            indexed_data[freq].append(amp)
+    
+    percentile_data = {}
+    for freq in indexed_data:
+        print(freq)
+        indexed_data[freq].sort()
+        percentile_index = len(indexed_data[freq]) * percentile // 100
+        print(f'freq {freq} length: {len(indexed_data[freq])}, percentile_index: {percentile_index}')
+        percentile_data[freq] = indexed_data[freq][percentile_index]
+    return percentile_data
+
 
 if __name__ == '__main__':
     demo = False
     if demo:
-        mask = np.array(create_sweep_data(250, 10))
+        noise = generate_spurious_spectrum()
 
-        # move mask 5 points up
-        up_mask = mask[5:, :]
-        extra = np.zeros((5, mask.shape[1]))
-        print(extra)
-        print(extra.shape)
-        print(mask.shape)
-        up_mask = np.concatenate([up_mask, extra])
+        sudden_noise = generate_sudden_wide_noise()
+        print(sudden_noise.shape)
+        plt.imshow(sudden_noise, cmap='hot', interpolation='nearest')
+        plt.colorbar()
+        plt.show()
 
-        # move mask 5 points down
-        down_mask = mask[:mask.shape[0]-5, :]
-        extra = np.zeros((5, mask.shape[1]))
-        print(extra)
-        print(extra.shape)
-        print(mask.shape)
-        down_mask = np.concatenate([extra, down_mask])
-
-        mix_mask = np.logical_or(up_mask,down_mask)
-
-        mask = 2 * mask - mix_mask
-
-        plt.imshow(mask, cmap='hot', interpolation='nearest')
+        noise = log_sum(noise, sudden_noise)
+        plt.imshow(noise, cmap='hot', interpolation='nearest')
         plt.colorbar()
         plt.show()
     else:
@@ -204,7 +212,7 @@ if __name__ == '__main__':
         plt.colorbar()
         plt.show()
 
-        noise = log_sum(noise, generate_sudden_wide_noise())
+        noise = log_sum(noise, sudden_noise)
         plt.imshow(noise, cmap='hot', interpolation='nearest')
         plt.colorbar()
         plt.show()
@@ -235,11 +243,22 @@ if __name__ == '__main__':
                 else:
                     noise_freqs.append(point_freq)
                     noise_amps.append(point_amplitude)
+        
         plt.plot(sweep_freqs, sweep_amps, 'o', c='g', label='sweep', markersize=1)
         plt.plot(response)
         plt.show()
         plt.plot(noise_freqs, noise_amps, 'o', c='r', label='noise', markersize=1)
         plt.plot(response)
         plt.plot(sweep_freqs, sweep_amps, 'o', c='g', label='sweep', markersize=1)
+        plt.show()
+
+        # do "histograms"
+        sweep_percentile = get_percentile_data(sweep_freqs, sweep_amps, percentile=10)
+        noise_percentile = get_percentile_data(noise_freqs, noise_amps, percentile=90)
+        diff = [sweep_percentile[k] - noise_percentile[k] for k in sweep_percentile.keys()]
+        diff = [d if d > 0 else 0 for d in diff]
+        plt.plot(sweep_percentile.keys(), sweep_percentile.values(), 'o', c='g', label='sweep', markersize=1)
+        plt.plot(noise_percentile.keys(), noise_percentile.values(), 'o', c='r', label='sweep', markersize=1)
+        plt.plot(sweep_percentile.keys(), diff)
         plt.show()
         
