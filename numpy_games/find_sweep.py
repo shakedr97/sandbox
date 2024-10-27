@@ -33,20 +33,29 @@ def create_sweep_data(time_offset, step_width=10, step_length=20):
         data.append(create_single_time_data(t + time_offset, step_width, step_length))
     return data
 
-def generate_frequency_response(width=250, size=1000):
-    diffs = np.random.random(width + size)
+def generate_frequency_response(smoothing_width=250, size=1000, scale=10):
+    """
+    randomly generate a mock frequency response.
+    the response function is random, but continuous. this is acheived by smoothing a random sequence.\n
+     * smoothing_width -> smoothing window width\n
+     * size -> size of the sequence representing the frequency response\n
+     * scale -> the max value of the frequency response to aim for, so that the response has values in the range [0, {scale}).
+    """
+    # random seed
+    diffs = np.random.random(smoothing_width + size)
     response = []
-
+    # 
     for i in range(size):
         point = 0
-        for j in range(i, i + width):
+        for j in range(i, i + smoothing_width):
             point += diffs[j]
         response.append(point)
     
-    # normalize reponse so max is 10 and average is 0
+    # normalize reponse so max is half the selected scale and average is 0
     response = np.array(response)
     response = response - np.mean(response)
-    response = response * 5 / np.max(response)
+    response = response * scale / 2 / np.max(response)
+    # slide response up so it is non-negative
     response = response - np.min(response)
     return response
 
