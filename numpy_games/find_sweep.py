@@ -4,6 +4,13 @@ import time
 import random
 from enum import Enum
 
+# TODO:
+# allow user to select the amplitude and mixture of noise types
+# make correlation calculations faster
+# clean up
+# allow user to choose problem dimensions
+# display all steps at the end
+
 class DebugLevel(Enum):
     NONE = 0
     INFO = 1
